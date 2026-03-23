@@ -1,68 +1,66 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { Language } from '@/i18n/translations';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { loadJSON, saveJSON } from '@/utils/storage';
 import { getThemeColors, normalizeTheme, type AppTheme, type ThemeColors } from '@/theme/theme';
-
-const STORAGE_KEYS = {
-  theme: 'dominos:theme',
-  language: 'dominos:language',
-} as const;
+import type { Language } from '@/i18n/translations';
 
 type PreferencesContextValue = {
   theme: AppTheme;
-  setTheme: (t: AppTheme) => Promise<void>;
-  themeColors: ThemeColors;
-
+  setTheme: (theme: AppTheme) => void;
   language: Language;
-  setLanguage: (l: Language) => Promise<void>;
-
-  ready: boolean;
+  setLanguage: (language: Language) => void;
+  themeColors: ThemeColors;
 };
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
+const THEME_KEY = 'theme';
+const LANGUAGE_KEY = 'language';
+
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<AppTheme>('light');
-  const [language, setLanguageState] = useState<Language>('fr');
-  const [ready, setReady] = useState(false);
+  const [language, setLanguageState] = useState<Language>('en');
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const savedTheme = await loadJSON<AppTheme>(STORAGE_KEYS.theme, 'light');
-      const savedLanguage = await loadJSON<Language>(STORAGE_KEYS.language, 'fr');
-      if (!mounted) return;
+    const loadPreferences = async () => {
+      const savedTheme = await loadJSON<AppTheme>(THEME_KEY, 'light');
+      const savedLanguage = await loadJSON<Language>(LANGUAGE_KEY, 'en');
       setThemeState(normalizeTheme(savedTheme));
       setLanguageState(savedLanguage);
-      setReady(true);
-    })();
-    return () => {
-      mounted = false;
     };
+    loadPreferences();
   }, []);
 
-  const setTheme = useCallback(async (t: AppTheme) => {
-    const normalized = normalizeTheme(t);
-    setThemeState(normalized);
-    await saveJSON(STORAGE_KEYS.theme, normalized);
-  }, []);
+  const setTheme = async (newTheme: AppTheme) => {
+    setThemeState(newTheme);
+    await saveJSON(THEME_KEY, newTheme);
+  };
 
-  const setLanguage = useCallback(async (l: Language) => {
-    setLanguageState(l);
-    await saveJSON(STORAGE_KEYS.language, l);
-  }, []);
+  const setLanguage = async (newLanguage: Language) => {
+    setLanguageState(newLanguage);
+    await saveJSON(LANGUAGE_KEY, newLanguage);
+  };
 
-  const value = useMemo<PreferencesContextValue>(() => {
-    const themeColors = getThemeColors(theme);
-    return { theme, setTheme, themeColors, language, setLanguage, ready };
-  }, [language, ready, setLanguage, setTheme, theme]);
+  const themeColors = getThemeColors(theme);
 
-  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
+  const value: PreferencesContextValue = {
+    theme,
+    setTheme,
+    language,
+    setLanguage,
+    themeColors,
+  };
+
+  return (
+    <PreferencesContext.Provider value={value}>
+      {children}
+    </PreferencesContext.Provider>
+  );
 }
 
 export function usePreferences() {
   const ctx = useContext(PreferencesContext);
-  if (!ctx) throw new Error('usePreferences must be used inside PreferencesProvider');
+  if (!ctx) {
+    throw new Error('usePreferences must be used inside PreferencesProvider');
+  }
   return ctx;
 }
-

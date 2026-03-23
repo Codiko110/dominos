@@ -1,13 +1,13 @@
 import React from 'react';
-import { PreferencesProvider, usePreferences } from '@/context/PreferencesContext';
-import { GameRoundsProvider } from '@/context/GameRoundsContext';
+import { PreferencesProvider, usePreferences } from './PreferencesContext';
+import { GameRoundsProvider } from './GameRoundsContext';
 import { I18nProvider } from '@/i18n/useI18n';
 
-function ProvidersInner({ children }: { children: React.ReactNode }) {
+function InnerProviders({ children }: { children: React.ReactNode }) {
   const { language, setLanguage } = usePreferences();
   return (
     <I18nProvider language={language} setLanguage={setLanguage}>
-      <GameRoundsProvider>{children}</GameRoundsProvider>
+      {children}
     </I18nProvider>
   );
 }
@@ -15,8 +15,9 @@ function ProvidersInner({ children }: { children: React.ReactNode }) {
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <PreferencesProvider>
-      <ProvidersInner>{children}</ProvidersInner>
+      <GameRoundsProvider>
+        <InnerProviders>{children}</InnerProviders>
+      </GameRoundsProvider>
     </PreferencesProvider>
   );
 }
-
