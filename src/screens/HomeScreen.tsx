@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Keyboard, ScrollView, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons'; // Import de l'icône
+
 import { useGame } from '@/context/GameRoundsContext';
 import { useI18n } from '@/i18n/useI18n';
 import { AppButton } from '@/components/ui/AppButton';
@@ -46,18 +48,15 @@ export default function HomeScreen() {
 
   const [numPlayers, setNumPlayers] = useState(2);
   const [playerNames, setPlayerNames] = useState<(string | null)[]>(['', '']);
-
   const [targetScore, setTargetScore] = useState<number>(100);
   const [manualTarget, setManualTarget] = useState<string>('100');
 
   const safePlayerNames = useMemo(() => {
-    const names = Array.from({ length: numPlayers }).map((_, idx) => playerNames[idx] ?? '');
-    return names;
+    return Array.from({ length: numPlayers }).map((_, idx) => playerNames[idx] ?? '');
   }, [numPlayers, playerNames]);
 
   const autoName = (idx: number) => {
-    if (language === 'en') return `Player ${idx + 1}`;
-    return `Joueur ${idx + 1}`;
+    return language === 'en' ? `Player ${idx + 1}` : `Joueur ${idx + 1}`;
   };
 
   const computedPlayerNames = useMemo(() => {
@@ -69,16 +68,15 @@ export default function HomeScreen() {
 
   const parsedManualTarget = useMemo(() => {
     const n = Number(manualTarget);
-    if (!Number.isFinite(n)) return null;
-    if (n < 0) return null;
+    if (!Number.isFinite(n) || n < 0) return null;
     return Math.floor(n);
   }, [manualTarget]);
 
-  const isManualTargetValid = parsedManualTarget !== null && parsedManualTarget >= 0;
+  const isManualTargetValid = parsedManualTarget !== null;
 
   const onPressStart = async () => {
     if (!ready) return;
-    const finalTarget = isManualTargetValid ? (parsedManualTarget as number) : targetScore;
+    const finalTarget = isManualTargetValid ? parsedManualTarget! : targetScore;
     await startNewGame({
       numPlayers,
       playerNames: computedPlayerNames,
@@ -93,11 +91,13 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
           <Text style={[styles.title, { color: themeColors.text }]}>{t('partConfigTitle')}</Text>
 
+          {/* NOMBRE DE JOUEURS */}
           <View style={styles.block}>
             <Text style={[styles.label, { color: themeColors.mutedText }]}>{t('numberOfPlayers')}</Text>
             <SegmentedPlayers value={numPlayers} onChange={(n) => setNumPlayers(n)} />
           </View>
 
+          {/* NOMS DES JOUEURS */}
           <View style={styles.block}>
             <Text style={[styles.label, { color: themeColors.mutedText }]}>
               {t('playerName')} {t('emptyAutoFill')}
@@ -106,7 +106,7 @@ export default function HomeScreen() {
               <View key={idx} style={styles.nameRow}>
                 <Text style={[styles.nameIndex, { color: themeColors.mutedText }]}>#{idx + 1}</Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: themeColors.card, color: themeColors.text, borderColor: themeColors.border }]}
+                  style={[styles.input, { flex: 1, backgroundColor: themeColors.card, color: themeColors.text, borderColor: themeColors.border }]}
                   value={playerNames[idx] ?? ''}
                   onChangeText={(txt) => {
                     setPlayerNames((prev) => {
@@ -123,12 +123,13 @@ export default function HomeScreen() {
             ))}
           </View>
 
+          {/* SCORE CIBLE */}
           <View style={styles.block}>
             <Text style={[styles.label, { color: themeColors.mutedText }]}>{t('targetScore')}</Text>
 
             <View style={styles.scoreButtonsRow}>
               {[100, 120, 200].map((v) => {
-                const isActive = targetScore === v;
+                const isActive = parsedManualTarget === v;
                 return (
                   <TouchableWithoutFeedback
                     key={v}
@@ -141,7 +142,7 @@ export default function HomeScreen() {
                         styles.scoreButton,
                         {
                           backgroundColor: isActive ? themeColors.primary : themeColors.card,
-                          borderColor: themeColors.border,
+                          borderColor: isActive ? themeColors.primary : themeColors.border,
                         },
                       ]}>
                       <Text style={{ color: isActive ? '#fff' : themeColors.text, fontWeight: '800' }}>{v}</Text>
@@ -151,28 +152,26 @@ export default function HomeScreen() {
               })}
             </View>
 
-            <View style={styles.manualRow}>
+            {/* INPUT MANUEL AVEC ICÔNE CRAYON */}
+            <View style={[styles.manualInputWrapper, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
               <TextInput
-                style={[styles.input, { flex: 1, backgroundColor: themeColors.card, color: themeColors.text, borderColor: themeColors.border }]}
+                style={[styles.manualInput, { color: themeColors.text }]}
                 keyboardType="numeric"
                 value={manualTarget}
                 onChangeText={(txt) => setManualTarget(txt)}
+                placeholder="Score personnalisé"
+                placeholderTextColor={themeColors.mutedText}
               />
-              <View style={{ width: 10 }} />
-              <AppButton
-                title={t('update')}
-                variant="secondary"
-                disabled={!isManualTargetValid}
-                onPress={() => {
-                  if (!parsedManualTarget) return;
-                  setTargetScore(parsedManualTarget);
-                }}
-              />
+              <Ionicons name="pencil" size={18} color={themeColors.primary} style={styles.pencilIcon} />
             </View>
           </View>
 
           <View style={styles.ctaRow}>
-            <AppButton title={t('startGame')} onPress={onPressStart} disabled={!ready} />
+            <AppButton 
+                title={t('startGame')} 
+                onPress={onPressStart} 
+                disabled={!ready || !isManualTargetValid} 
+            />
           </View>
         </ScrollView>
       </TouchableWithoutFeedback>
@@ -181,79 +180,40 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    flex: 1,
-  },
-  inner: {
-    padding: 16,
-    gap: 18,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '900',
-  },
-  block: {
-    gap: 10,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  segmentedRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  segmentedItem: {
-    flex: 1,
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentedText: {
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  nameRow: {
+  content: { flex: 1 },
+  inner: { padding: 16, gap: 18 },
+  title: { fontSize: 26, fontWeight: '900' },
+  block: { gap: 10 },
+  label: { fontSize: 14, fontWeight: '700' },
+  segmentedRow: { flexDirection: 'row', gap: 10 },
+  segmentedItem: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  segmentedText: { fontSize: 16, fontWeight: '900' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+  nameIndex: { width: 32, textAlign: 'center', fontWeight: '800' },
+  input: { height: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 16, fontWeight: '700' },
+  scoreButtonsRow: { flexDirection: 'row', gap: 10 },
+  scoreButton: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  
+  // Nouveaux styles pour le champ manuel épuré
+  manualInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 10,
-  },
-  nameIndex: {
-    width: 32,
-    textAlign: 'center',
-    fontWeight: '800',
-  },
-  input: {
     height: 46,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 12,
+    marginTop: 6,
+  },
+  manualInput: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '700',
+    height: '100%',
   },
-  scoreButtonsRow: {
-    flexDirection: 'row',
-    gap: 10,
+  pencilIcon: {
+    marginLeft: 8,
+    opacity: 0.8,
   },
-  scoreButton: {
-    flex: 1,
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  manualRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 10,
-  },
-  ctaRow: {
-    marginTop: 10,
-  },
+  
+  ctaRow: { marginTop: 10 },
 });
-
