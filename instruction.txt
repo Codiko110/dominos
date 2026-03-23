@@ -1,0 +1,216 @@
+Tu es un développeur expert en React Native avec Expo.
+
+Ta mission est de créer une application mobile complète (Android APK) de compteur de score pour jeu de dominos.
+
+L'application doit être bien structurée, propre, moderne et fonctionnelle, avec un code clair et maintenable.
+
+---
+
+## 🎯 OBJECTIF DE L’APPLICATION
+
+Créer une application OFFLINE permettant de gérer les scores d’une partie de dominos entre 2 à 4 joueurs.
+
+---
+
+## ⚙️ CONTRAINTES TECHNIQUES
+
+* Utiliser React Native avec Expo
+* Utiliser JavaScript (ou TypeScript si tu préfères)
+* Utiliser React Navigation pour la navigation
+* Utiliser AsyncStorage pour le stockage local
+* Application 100% offline (aucune API externe)
+* Code bien structuré (architecture en dossiers)
+
+---
+
+## 📁 STRUCTURE ATTENDUE
+
+Créer une structure propre :
+
+/src
+/screens
+/components
+/context
+/utils
+/i18n (pour multi-langue)
+/theme (pour dark/light mode)
+
+---
+
+## 📱 ÉCRANS À CRÉER
+
+1. HomeScreen (Configuration partie)
+2. GameScreen (Partie en cours)
+3. ResultScreen (Résultat)
+4. HistoryScreen (Historique)
+5. SettingsScreen (Paramètres)
+
+---
+
+## 🔹 1. CONFIGURATION PARTIE
+
+Fonctionnalités :
+
+* Choisir nombre de joueurs (2 à 4)
+* Champs pour noms des joueurs (optionnels)
+* Si vide → auto remplir :
+  "Joueur 1", "Joueur 2", etc.
+* Choisir score final :
+  boutons : 100, 120, 200
+  ou saisie manuelle
+* Bouton "Démarrer la partie"
+
+---
+
+## 🔹 2. PARTIE (GAME SCREEN)
+
+Afficher pour chaque joueur :
+
+* Nom
+* Score actuel
+
+Fonctionnalités :
+
+* Indiquer : "Tour de : Joueur X"
+* Bouton "Joueur suivant"
+* Ajouter score (input manuel uniquement)
+* Modifier / corriger score
+* Afficher progression (ex : 80 / 100)
+* Détection automatique fin de partie
+
+IMPORTANT :
+
+* Score augmente jusqu’au score cible
+* Dès qu’un joueur >= objectif → fin de partie
+
+UI :
+
+* Joueur actif mis en évidence
+* Interface simple et rapide
+
+---
+
+## 📷 ICÔNE SCANNER (IMPORTANT)
+
+* Ajouter une icône caméra à côté de chaque joueur
+* Cette icône NE FAIT RIEN pour le moment
+* Juste un bouton visuel (placeholder)
+* Préparer le code pour future intégration
+
+---
+
+## 🔹 3. RESULT SCREEN
+
+* Afficher gagnant
+* Classement des joueurs
+* Boutons :
+
+  * Rejouer
+  * Retour accueil
+
+---
+
+## 🔹 4. HISTORIQUE
+
+* Liste des parties jouées :
+
+  * date
+  * joueurs
+  * gagnant
+  * score final
+* Cliquer → voir détails :
+
+  * historique des scores
+* Supprimer une partie
+* Supprimer tout
+
+---
+
+## 🔹 5. PARAMÈTRES
+
+🌙 Thème :
+
+* Mode clair / sombre
+
+🌍 Langue :
+
+* Français
+
+* Anglais
+
+* Tous les textes doivent être traduits
+
+* Utiliser un système i18n simple
+
+---
+
+## 💾 STOCKAGE LOCAL
+
+Sauvegarder avec AsyncStorage :
+
+* Historique des parties
+* Thème choisi
+* Langue
+
+---
+
+## 🎨 UI / UX
+
+* Design simple mais moderne
+* Couleur différente pour chaque joueur
+* Highlight du joueur actif
+* Navigation fluide
+* Composants réutilisables
+
+---
+
+## 🧠 GESTION D'ÉTAT
+
+* Utiliser Context API
+* Stocker :
+
+  * joueurs
+  * scores
+  * joueur courant
+  * historique
+
+---
+
+## 📦 BONUS (SI POSSIBLE)
+
+* Animation légère lors ajout score
+* Barre de progression
+
+---
+
+## 📤 LIVRABLE
+
+* Code complet prêt à lancer avec Expo
+* Instructions pour :
+
+  * installation
+  * lancement (expo start)
+  * build APK
+
+---
+
+## IMPORTANT :
+
+* Ne pas inclure la fonctionnalité IA de scan
+
+* Mais garder l’icône caméra dans l’UI
+
+* Code clair, bien commenté
+
+* Ne pas simplifier la logique
+
+* Fournir une vraie application fonctionnelle
+
+---
+
+Commence par :
+
+1. Initialisation du projet Expo
+2. Installation des dépendances
+3. Création de la navigation
+4. Puis implémentation complète écran par écran

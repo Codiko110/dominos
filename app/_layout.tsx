@@ -1,24 +1,33 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePreferences } from '@/context/PreferencesContext';
+import { AppProviders } from '@/context/AppProviders';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootStack() {
+  const { theme } = usePreferences();
+  const barStyle = theme === 'dark' ? ('light' as const) : ('dark' as const);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="game" options={{ headerShown: false }} />
+        <Stack.Screen name="result" options={{ headerShown: false }} />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+      <StatusBar style={barStyle as 'light' | 'dark'} />
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AppProviders>
+      <RootStack />
+    </AppProviders>
   );
 }
