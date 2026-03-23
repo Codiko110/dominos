@@ -1,23 +1,37 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useGame } from '@/context/GameRoundsContext';
 import { useI18n } from '@/i18n/useI18n';
 import { usePreferences } from '@/context/PreferencesContext';
-import { AppButton } from '@/components/ui/AppButton';
-import { CameraPlaceholderButton } from '@/components/ui/CameraPlaceholderButton';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 
 export default function GameScreen() {
   const router = useRouter();
   const { t } = useI18n();
   const { themeColors } = usePreferences();
-  const { game, addRound, addRoundWithScore, deleteRound, setRoundScore, replay } = useGame();
+  const { game, addRoundWithScore, deleteRound, setRoundScore, replay } = useGame();
   const { width: windowWidth } = useWindowDimensions();
 
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [pointsToAdd, setPointsToAdd] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  
+  const inputRef = useRef<TextInput>(null);
 
   const roundsSignature = useMemo(() => {
     return game ? game.rounds.map((r) => r.id).join('|') : '';
@@ -33,348 +47,276 @@ export default function GameScreen() {
     }
   }, [game?.status, router]);
 
-  if (!game) {
-    return (
-      <ScreenContainer style={styles.centered}>
-        <Text style={{ color: themeColors.text, fontWeight: '900', fontSize: 16 }}>{t('game')}</Text>
-        <Text style={{ color: themeColors.mutedText, marginTop: 10 }}>{t('backHome')}</Text>
-      </ScreenContainer>
-    );
-  }
+  if (!game) return null;
 
   const objective = game.targetScore;
   const isFinished = game.status === 'finished';
 
-  const numPlayers = game.players.length;
-  const roundColWidth = 56;
-  const playerColWidth = Math.max(92, Math.floor((windowWidth - 48 - roundColWidth) / Math.max(1, numPlayers)));
-  const tableMinWidth = roundColWidth + playerColWidth * numPlayers;
-  const shouldScrollX = tableMinWidth > windowWidth - 32;
+  // --- LOGIQUE MODAL ---
+  const openAddPointsModal = (playerId: string) => {
+    setSelectedPlayerId(playerId);
+    setPointsToAdd('');
+    setIsModalVisible(true);
+  };
 
-  const getKey = (roundId: string, playerId: string) => `${roundId}_${playerId}`;
+  const handleConfirmPoints = async () => {
+    if (selectedPlayerId) {
+      const n = Number(pointsToAdd.trim());
+      const safeScore = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+      await addRoundWithScore(selectedPlayerId, safeScore);
+      setIsModalVisible(false);
+      setSelectedPlayerId(null);
+    }
+  };
 
   const onChangeCell = (roundId: string, playerId: string, raw: string) => {
-    const key = getKey(roundId, playerId);
+    const key = `${roundId}_${playerId}`;
     setDrafts((prev) => ({ ...prev, [key]: raw }));
-
-    const trimmed = raw.trim();
-    if (trimmed === '') {
-      void setRoundScore(roundId, playerId, 0);
-      return;
-    }
-
-    const n = Number(trimmed);
+    const n = Number(raw.trim());
     if (!Number.isFinite(n)) return;
     void setRoundScore(roundId, playerId, n);
   };
 
-  return (
-    <ScreenContainer>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={[styles.headerTitle, { color: themeColors.text }]}>{t('game')}</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            disabled={isFinished}
-            onPress={async () => {
-              await replay();
-            }}
-            style={[styles.refreshBtn, { borderColor: themeColors.border, opacity: isFinished ? 0.5 : 1 }]}>
-            <Ionicons name="refresh-outline" size={20} color={themeColors.primary} />
-          </TouchableOpacity>
-        </View>
+  const currentPlayer = game.players.find((p) => p.id === selectedPlayerId);
 
-        <Text style={[styles.headerSub, { color: themeColors.mutedText }]}>
-          {t('targetScore')} :{' '}
-          <Text style={{ color: themeColors.text, fontWeight: '900' }}>{objective}</Text>
-        </Text>
+  return (
+    <ScreenContainer style={{ backgroundColor: themeColors.background }}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => replay()} style={styles.refreshBtn}>
+          <Ionicons name="refresh" size={24} color={themeColors.primary} />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        scrollEnabled={!isFinished}>
-        <ScrollView horizontal={shouldScrollX} showsHorizontalScrollIndicator={false}>
-          <View style={[styles.table, { minWidth: tableMinWidth }]}>
-            <View style={styles.tableHeaderRow}>
-              <View style={[styles.colRound, { width: roundColWidth }]}>
-                <Text style={[styles.th, { color: themeColors.mutedText }]}>{t('round')}</Text>
+      {/* Grille des joueurs */}
+      <View style={styles.gridContainer}>
+        {game.players.map((p) => (
+          <View key={p.id} style={[styles.playerCol, { width: (windowWidth - 32) / 2 }]}>
+            
+            {/* En-tête du joueur (Carré rouge adapté) */}
+            <View style={[styles.playerCard, { backgroundColor: p.color || '#990000' }]}>
+              <View style={styles.cardInfo}>
+                <Text style={styles.playerName} numberOfLines={1}>
+                  {p.name.toLowerCase()}
+                </Text>
+                <TouchableOpacity onPress={() => openAddPointsModal(p.id)} style={styles.plusIcon}>
+                  <Ionicons name="add" size={28} color="#FFF" />
+                </TouchableOpacity>
               </View>
-
-              {game.players.map((p) => (
-                <View key={p.id} style={[styles.colPlayer, { width: playerColWidth }]}>
-                  <View style={[styles.playerHeader, { borderColor: p.color, backgroundColor: `${p.color}10` }]}>
-                    <View style={styles.playerHeaderTopRow}>
-                      <CameraPlaceholderButton color={p.color} />
-                      <TouchableOpacity
-                        accessibilityRole="button"
-                        disabled={isFinished}
-                        onPress={() => {
-                          void addRoundWithScore(p.id, 1);
-                        }}
-                        style={[styles.plusBtn, { borderColor: themeColors.border, backgroundColor: themeColors.card }]}>
-                        <Ionicons name="add" size={18} color={themeColors.primary} />
-                      </TouchableOpacity>
-                    </View>
-
-                    <Text style={[styles.thPlayer, { color: themeColors.text }]} numberOfLines={1}>
-                      {p.name}
-                    </Text>
-                    <Text style={[styles.totalInHeader, { color: themeColors.text }]}>
-                      {p.score} / {objective}
-                    </Text>
-                  </View>
-                </View>
-              ))}
+              <Text style={styles.cardBigScore}>{p.score}</Text>
             </View>
 
-            {game.rounds.length === 0 ? (
-              <View style={styles.empty}>
-                <Text style={{ color: themeColors.mutedText, fontWeight: '900' }}>{t('emptyRounds')}</Text>
-              </View>
-            ) : null}
-
-            {game.rounds.map((round, roundIdx) => (
-              <View key={round.id} style={styles.row}>
-                <View style={[styles.colRound, { width: roundColWidth }]}>
-                  <View style={styles.roundTop}>
-                    <Text style={{ color: themeColors.text, fontWeight: '900' }}>{roundIdx + 1}</Text>
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      disabled={isFinished}
-                      onPress={() => {
-                        void deleteRound(round.id);
-                      }}
-                      style={[styles.deleteBtn, { borderColor: themeColors.border }]}>
-                      <Text style={{ color: '#DC2626', fontWeight: '900' }}>❌</Text>
+            {/* Liste des points avec Scroll individuel */}
+            <ScrollView 
+              style={styles.roundsListScroll} 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 10 }}
+            >
+              {game.rounds.map((round, idx) => {
+                const val = drafts[`${round.id}_${p.id}`] ?? String(round.scoresByPlayerId[p.id] ?? 0);
+                return (
+                  <View key={round.id} style={[styles.roundRow, { borderBottomColor: themeColors.border }]}>
+                    <Text style={[styles.roundIdx, { color: themeColors.mutedText }]}>{idx + 1}</Text>
+                    <TextInput
+                      style={[styles.roundInput, { color: themeColors.text }]}
+                      keyboardType="numeric"
+                      value={val}
+                      onChangeText={(txt) => onChangeCell(round.id, p.id, txt)}
+                      selectTextOnFocus
+                    />
+                    <TouchableOpacity onPress={() => deleteRound(round.id)}>
+                      <Text style={styles.deleteX}>✕</Text>
                     </TouchableOpacity>
                   </View>
-                </View>
+                );
+              })}
+            </ScrollView>
 
-                {game.players.map((p) => {
-                  const key = getKey(round.id, p.id);
-                  const value = drafts[key] ?? String(round.scoresByPlayerId[p.id] ?? 0);
-                  return (
-                    <View key={p.id} style={[styles.colPlayer, { width: playerColWidth }]}>
-                      <TextInput
-                        style={[
-                          styles.input,
-                          {
-                            backgroundColor: themeColors.background,
-                            borderColor: themeColors.border,
-                            color: themeColors.text,
-                            opacity: isFinished ? 0.55 : 1,
-                          },
-                        ]}
-                        keyboardType="numeric"
-                        editable={!isFinished}
-                        value={value}
-                        onChangeText={(txt) => onChangeCell(round.id, p.id, txt)}
-                        selectTextOnFocus
-                      />
-                    </View>
-                  );
-                })}
-              </View>
-            ))}
+            {/* Footer Score */}
+            <View style={styles.footerScore}>
+              <Text style={[styles.scoreTotal, { color: themeColors.text }]}>
+                {p.score}
+                <Text style={{ fontSize: 12, color: themeColors.mutedText }}> /{objective}</Text>
+              </Text>
+            </View>
           </View>
-        </ScrollView>
+        ))}
+      </View>
 
-        <View style={styles.totalsWrap}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{t('total')}</Text>
-          <View style={styles.totalsRow}>
-            {game.players.map((p) => (
-              <View key={p.id} style={[styles.totalCard, { borderColor: p.color }]}>
-                <View style={styles.totalTop}>
-                  <View style={[styles.playerDot, { backgroundColor: p.color }]} />
-                  <Text style={{ color: themeColors.text, fontWeight: '900' }} numberOfLines={1}>
-                    {p.name}
-                  </Text>
-                </View>
-                <Text style={{ color: themeColors.text, fontWeight: '900', fontSize: 18 }}>
-                  {p.score} / {objective}
-                </Text>
-              </View>
-            ))}
+      {/* MODAL AJOUT POINTS */}
+      <Modal
+        visible={isModalVisible}
+        transparent
+        animationType="fade"
+        onShow={() => inputRef.current?.focus()} // Force le focus à l'ouverture
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalContent, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <Text style={[styles.modalTitle, { color: themeColors.text }]}>{currentPlayer?.name}</Text>
+            
+            <TextInput
+              ref={inputRef}
+              style={[styles.modalInput, { backgroundColor: themeColors.background, color: themeColors.text }]}
+              keyboardType="numeric"
+              value={pointsToAdd}
+              onChangeText={setPointsToAdd}
+              placeholder="0"
+              placeholderTextColor={themeColors.mutedText}
+              autoFocus={true} 
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setIsModalVisible(false)} style={styles.cancelBtn}>
+                <Text style={{ color: themeColors.mutedText }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={handleConfirmPoints} 
+                style={[styles.confirmBtn, { backgroundColor: currentPlayer?.color || themeColors.primary }]}
+              >
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Valider</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-
-        <View style={styles.addRoundWrap}>
-          <AppButton
-            title={t('addRound')}
-            onPress={() => {
-              void addRound();
-            }}
-            disabled={isFinished}
-          />
-        </View>
-      </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    gap: 8,
-  },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
-    gap: 6,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
-  headerRow: {
+  refreshBtn: {
+    padding: 8,
+  },
+  gridContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 8,
+    justifyContent: 'space-between',
+  },
+  playerCol: {
+    height: '48%', // Permet d'avoir 2 rangées environ sur l'écran
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  playerCard: {
+    borderRadius: 12,
+    padding: 10,
+    height: 80,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  cardInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 10,
+    zIndex: 2,
   },
-  headerTitle: {
+  playerName: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '800',
+    flex: 1,
+  },
+  plusIcon: {
+    padding: 2,
+  },
+  cardBigScore: {
+    position: 'absolute',
+    right: 5,
+    bottom: -5,
+    fontSize: 50,
+    fontWeight: '900',
+    color: 'rgba(255,255,255,0.25)',
+  },
+  roundsListScroll: {
+    flex: 1,
+    marginTop: 8,
+  },
+  roundRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  roundIdx: {
+    fontSize: 12,
+    width: 18,
+  },
+  roundInput: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+    padding: 0,
+  },
+  deleteX: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: 'bold',
+    width: 20,
+    textAlign: 'right',
+  },
+  footerScore: {
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  scoreTotal: {
     fontSize: 24,
     fontWeight: '900',
   },
-  headerSub: {
-    fontSize: 14,
-    fontWeight: '800',
+  // MODAL
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  refreshBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+  modalContent: {
+    width: '85%',
+    borderRadius: 20,
+    padding: 20,
     borderWidth: 1,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  content: {
-    padding: 16,
-    gap: 16,
-    paddingBottom: 24,
-  },
-  table: {
-    borderWidth: 1,
-    borderRadius: 16,
-    borderColor: 'rgba(0,0,0,0.06)',
-    overflow: 'hidden',
-  },
-  tableHeaderRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
-    paddingVertical: 10,
-  },
-  row: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  colRound: {
-    paddingHorizontal: 8,
-  },
-  colPlayer: {
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  th: {
-    fontWeight: '900',
-    fontSize: 14,
-  },
-  thPlayer: {
-    fontWeight: '900',
-    fontSize: 14,
-  },
-  playerHeader: {
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    gap: 6,
-    alignItems: 'center',
-  },
-  playerHeaderTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  plusBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-  },
-  empty: {
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roundTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  deleteBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  input: {
-    width: '100%',
-    height: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 10,
+  modalTitle: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  modalInput: {
+    width: '100%',
+    height: 60,
+    borderRadius: 12,
+    fontSize: 32,
     textAlign: 'center',
+    fontWeight: 'bold',
+    marginBottom: 20,
   },
-  totalInHeader: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  totalsWrap: {
-    gap: 10,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  totalsRow: {
+  modalActions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 15,
   },
-  totalCard: {
-    minWidth: 130,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.02)',
-  },
-  totalTop: {
-    flexDirection: 'row',
+  cancelBtn: {
+    flex: 1,
+    padding: 15,
     alignItems: 'center',
-    gap: 8,
   },
-  addRoundWrap: {
-    marginTop: 6,
+  confirmBtn: {
+    flex: 2,
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
   },
 });
-
