@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
+  Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,19 +17,19 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useGame } from '@/context/GameRoundsContext';
-import { useI18n } from '@/i18n/useI18n';
 import { usePreferences } from '@/context/PreferencesContext';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
+import { PlayerCameraModal } from '@/components/ui/PlayerCameraModal';
 
 export default function GameScreen() {
   const router = useRouter();
-  const { t } = useI18n();
   const { themeColors } = usePreferences();
-  const { game, addRoundWithScore, deleteRound, setRoundScore, replay } = useGame();
+  const { game, addRoundWithScore, deleteRound, setRoundScore, replay, recordPlayerCapture } = useGame();
   const { width: windowWidth } = useWindowDimensions();
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [cameraPlayerId, setCameraPlayerId] = useState<string | null>(null);
   const [pointsToAdd, setPointsToAdd] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   
@@ -50,13 +52,16 @@ export default function GameScreen() {
   if (!game) return null;
 
   const objective = game.targetScore;
-  const isFinished = game.status === 'finished';
 
   // --- LOGIQUE MODAL ---
   const openAddPointsModal = (playerId: string) => {
     setSelectedPlayerId(playerId);
     setPointsToAdd('');
     setIsModalVisible(true);
+  };
+
+  const openCamera = (playerId: string) => {
+    setCameraPlayerId(playerId);
   };
 
   const handleConfirmPoints = async () => {
@@ -78,6 +83,7 @@ export default function GameScreen() {
   };
 
   const currentPlayer = game.players.find((p) => p.id === selectedPlayerId);
+  const cameraPlayer = game.players.find((p) => p.id === cameraPlayerId);
 
   return (
     <ScreenContainer style={{ backgroundColor: themeColors.background }}>
@@ -96,13 +102,32 @@ export default function GameScreen() {
             {/* En-tête du joueur (Carré rouge adapté) */}
             <View style={[styles.playerCard, { backgroundColor: p.color || '#990000' }]}>
               <View style={styles.cardInfo}>
-                <Text style={styles.playerName} numberOfLines={1}>
-                  {p.name.toLowerCase()}
-                </Text>
-                <TouchableOpacity onPress={() => openAddPointsModal(p.id)} style={styles.plusIcon}>
-                  <Ionicons name="add" size={28} color="#FFF" />
-                </TouchableOpacity>
+                <View style={styles.playerIdentity}>
+                  {p.photoUri ? <Image source={{ uri: p.photoUri }} style={styles.playerThumb} /> : null}
+                  <Text style={styles.playerName} numberOfLines={1}>
+                    {p.name.toLowerCase()}
+                  </Text>
+                </View>
+                <View style={styles.cardActions}>
+                  <Pressable
+                    onPress={() => openCamera(p.id)}
+                    style={({ pressed }) => [styles.cameraIcon, pressed && styles.iconPressed]}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Ouvrir la caméra pour ${p.name}`}>
+                    <Ionicons name="camera-outline" size={20} color="#FFF" />
+                  </Pressable>
+                  <TouchableOpacity onPress={() => openAddPointsModal(p.id)} style={styles.plusIcon}>
+                    <Ionicons name="add" size={28} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
               </View>
+              {typeof p.lastDetectedPoints === 'number' ? (
+                <View style={styles.detectedBadge}>
+                  <Ionicons name="scan-outline" size={12} color="#FFF" />
+                  <Text style={styles.detectedBadgeText}>{p.lastDetectedPoints} pts</Text>
+                </View>
+              ) : null}
               <Text style={styles.cardBigScore}>{p.score}</Text>
             </View>
 
@@ -182,6 +207,19 @@ export default function GameScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {cameraPlayer ? (
+        <PlayerCameraModal
+          visible={!!cameraPlayer}
+          playerName={cameraPlayer.name}
+          playerColor={cameraPlayer.color}
+          onClose={() => setCameraPlayerId(null)}
+          onUsePhoto={async (photoUri) => {
+            await recordPlayerCapture(cameraPlayer.id, photoUri);
+            setCameraPlayerId(null);
+          }}
+        />
+      ) : null}
     </ScreenContainer>
   );
 }
@@ -221,14 +259,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 2,
   },
+  playerIdentity: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginRight: 8,
+  },
+  playerThumb: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.45)',
+  },
   playerName: {
     color: '#FFF',
     fontSize: 14,
     fontWeight: '800',
     flex: 1,
   },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cameraIcon: {
+    padding: 6,
+    borderRadius: 999,
+    marginRight: 2,
+  },
   plusIcon: {
     padding: 2,
+  },
+  iconPressed: {
+    opacity: 0.75,
+  },
+  detectedBadge: {
+    position: 'absolute',
+    left: 10,
+    bottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  detectedBadgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   cardBigScore: {
     position: 'absolute',

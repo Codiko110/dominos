@@ -3,7 +3,21 @@
     "name": "Domino Score",
     "slug": "domino-score",
     "scheme": "domino-score",
-    
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autorisez Domino Score a acceder a la camera pour photographier les dominos."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Autorisez Domino Score a acceder a la camera pour prendre une photo."
+        }
+      ]
+    ],
+
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
