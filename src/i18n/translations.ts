@@ -12,7 +12,7 @@ export const translations: Record<Language, Record<string, string>> = {
     partConfigTitle: 'Configurer la partie',
     numberOfPlayers: 'Nombre de joueurs',
     playerName: 'Nom du joueur',
-    emptyAutoFill: '(vide -> auto)',
+    emptyAutoFill: '',
     targetScore: 'Score objectif',
     startGame: 'Démarrer la partie',
 
@@ -70,7 +70,7 @@ export const translations: Record<Language, Record<string, string>> = {
     partConfigTitle: 'Configure the match',
     numberOfPlayers: 'Number of players',
     playerName: 'Player name',
-    emptyAutoFill: '(empty -> auto)',
+    emptyAutoFill: '',
     targetScore: 'Target score',
     startGame: 'Start game',
 
