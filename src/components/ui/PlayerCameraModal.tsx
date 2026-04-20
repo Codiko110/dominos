@@ -11,13 +11,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
 import { usePreferences } from '@/context/PreferencesContext';
+import type { DetectionBox, DominoDetectionResult } from '@/ai/dominoDetector';
 
 type PlayerCameraModalProps = {
   visible: boolean;
   playerName: string;
   playerColor: string;
   onClose: () => void;
-  onUsePhoto: (photoUri: string) => Promise<void>;
+  onAnalyzePhoto: (photoUri: string) => Promise<DominoDetectionResult>;
+  onUsePhoto: (photoUri: string, analysis: DominoDetectionResult) => Promise<void>;
 };
 
 export function PlayerCameraModal({
@@ -25,6 +27,7 @@ export function PlayerCameraModal({
   playerName,
   playerColor,
   onClose,
+  onAnalyzePhoto,
   onUsePhoto,
 }: PlayerCameraModalProps) {
   const { themeColors } = usePreferences();
@@ -34,14 +37,57 @@ export function PlayerCameraModal({
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<DominoDetectionResult | null>(null);
 
   useEffect(() => {
     if (!visible) {
       setCapturedUri(null);
       setIsTakingPhoto(false);
       setIsSavingPhoto(false);
+      setIsAnalyzing(false);
+      setAnalysisError(null);
+      setAnalysis(null);
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (!capturedUri) {
+      setIsAnalyzing(false);
+      setAnalysisError(null);
+      setAnalysis(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const runAnalysis = async () => {
+      setIsAnalyzing(true);
+      setAnalysisError(null);
+      setAnalysis(null);
+      try {
+        const result = await onAnalyzePhoto(capturedUri);
+        if (!cancelled) {
+          setAnalysis(result);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setAnalysisError(error instanceof Error ? error.message : "L'analyse a echoue.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsAnalyzing(false);
+        }
+      }
+    };
+
+    void runAnalysis();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [capturedUri, onAnalyzePhoto]);
 
   const handleTakePhoto = async () => {
     if (!cameraRef.current || isTakingPhoto) return;
@@ -59,13 +105,36 @@ export function PlayerCameraModal({
   };
 
   const handleUsePhoto = async () => {
-    if (!capturedUri || isSavingPhoto) return;
+    if (!capturedUri || !analysis || isSavingPhoto || isAnalyzing) return;
     setIsSavingPhoto(true);
     try {
-      await onUsePhoto(capturedUri);
+      await onUsePhoto(capturedUri, analysis);
     } finally {
       setIsSavingPhoto(false);
     }
+  };
+
+  const renderDetectionOverlay = (boxes: DetectionBox[]) => {
+    if (boxes.length === 0) return null;
+
+    return (
+      <View pointerEvents="none" style={styles.overlayBoxes}>
+        {boxes.map((box, index) => (
+          <View
+            key={`${index}_${box.x}_${box.y}`}
+            style={[
+              styles.box,
+              {
+                left: `${box.x * 100}%`,
+                top: `${box.y * 100}%`,
+                width: `${box.width * 100}%`,
+                height: `${box.height * 100}%`,
+              },
+            ]}
+          />
+        ))}
+      </View>
+    );
   };
 
   const renderBody = () => {
@@ -95,7 +164,18 @@ export function PlayerCameraModal({
     }
 
     if (capturedUri) {
-      return <Image source={{ uri: capturedUri }} style={styles.preview} resizeMode="cover" />;
+      return (
+        <View style={styles.previewWrap}>
+          <Image source={{ uri: capturedUri }} style={styles.preview} resizeMode="cover" />
+          {analysis ? renderDetectionOverlay(analysis.boxes) : null}
+          {isAnalyzing ? (
+            <View style={styles.analysisOverlay}>
+              <ActivityIndicator color="#FFF" />
+              <Text style={styles.analysisOverlayText}>Analyse en cours...</Text>
+            </View>
+          ) : null}
+        </View>
+      );
     }
 
     return (
@@ -125,9 +205,15 @@ export function PlayerCameraModal({
           <View style={[styles.viewport, { backgroundColor: '#0F172A' }]}>{renderBody()}</View>
 
           <View style={[styles.infoBar, { borderColor: themeColors.border, backgroundColor: themeColors.background }]}>
-            <Ionicons name="scan-outline" size={18} color={playerColor} />
+            <Ionicons name={analysisError ? 'warning-outline' : 'scan-outline'} size={18} color={playerColor} />
             <Text style={[styles.infoText, { color: themeColors.mutedText }]}>
-              Photo enregistree pour ce joueur. Le branchement IA temps reel reste a integrer.
+              {analysisError
+                ? analysisError
+                : analysis
+                  ? `Points detectes: ${analysis.points}`
+                  : capturedUri
+                    ? 'Photo capturee. Analyse du modele en cours.'
+                    : `Cadre les dominos de ${playerName}, puis prends la photo pour compter les points.`}
             </Text>
           </View>
 
@@ -141,8 +227,21 @@ export function PlayerCameraModal({
                 </Pressable>
                 <Pressable
                   onPress={() => void handleUsePhoto()}
-                  style={[styles.primaryBtn, { backgroundColor: playerColor, opacity: isSavingPhoto ? 0.7 : 1 }]}>
-                  <Text style={styles.primaryBtnText}>{isSavingPhoto ? 'Enregistrement...' : 'Utiliser'}</Text>
+                  disabled={!analysis || isAnalyzing || isSavingPhoto}
+                  style={[
+                    styles.primaryBtn,
+                    {
+                      backgroundColor: playerColor,
+                      opacity: !analysis || isAnalyzing || isSavingPhoto ? 0.5 : 1,
+                    },
+                  ]}>
+                  <Text style={styles.primaryBtnText}>
+                    {isSavingPhoto
+                      ? 'Credit...'
+                      : analysis
+                        ? `Crediter ${analysis.points} pts`
+                        : 'Analyse...'}
+                  </Text>
                 </Pressable>
               </>
             ) : (
@@ -217,6 +316,31 @@ const styles = StyleSheet.create({
   preview: {
     width: '100%',
     height: '100%',
+  },
+  previewWrap: {
+    width: '100%',
+    height: '100%',
+  },
+  overlayBoxes: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  box: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: '#22C55E',
+    borderRadius: 8,
+    backgroundColor: 'rgba(34, 197, 94, 0.10)',
+  },
+  analysisOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  analysisOverlayText: {
+    color: '#FFF',
+    fontWeight: '700',
   },
   infoBar: {
     borderWidth: 1,

@@ -16,6 +16,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { detectDominoPoints } from '@/ai/dominoDetector';
 import { useGame } from '@/context/GameRoundsContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
@@ -214,8 +215,9 @@ export default function GameScreen() {
           playerName={cameraPlayer.name}
           playerColor={cameraPlayer.color}
           onClose={() => setCameraPlayerId(null)}
-          onUsePhoto={async (photoUri) => {
-            await recordPlayerCapture(cameraPlayer.id, photoUri);
+          onAnalyzePhoto={detectDominoPoints}
+          onUsePhoto={async (photoUri, analysis) => {
+            await recordPlayerCapture(cameraPlayer.id, photoUri, analysis.points);
             setCameraPlayerId(null);
           }}
         />
