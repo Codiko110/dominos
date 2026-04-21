@@ -29,6 +29,10 @@ const NMS_THRESHOLD = 0.4;
 
 let modelPromise: Promise<TfliteModel> | null = null;
 
+export async function warmupDominoDetector() {
+  await getModel();
+}
+
 async function getFastTfliteModule() {
   try {
     return await import('react-native-fast-tflite');
@@ -110,6 +114,8 @@ function decodeJpegBase64(base64: string) {
   return jpeg.decode(jpegBytes, {
     useTArray: true,
     formatAsRGBA: true,
+    maxMemoryUsageInMB: 512,
+    tolerantDecoding: true,
   });
 }
 

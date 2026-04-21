@@ -18,6 +18,7 @@ type PlayerCameraModalProps = {
   playerName: string;
   playerColor: string;
   onClose: () => void;
+  onWarmup?: () => Promise<void>;
   onAnalyzePhoto: (photoUri: string) => Promise<DominoDetectionResult>;
   onUsePhoto: (photoUri: string, analysis: DominoDetectionResult) => Promise<void>;
 };
@@ -27,6 +28,7 @@ export function PlayerCameraModal({
   playerName,
   playerColor,
   onClose,
+  onWarmup,
   onAnalyzePhoto,
   onUsePhoto,
 }: PlayerCameraModalProps) {
@@ -40,6 +42,67 @@ export function PlayerCameraModal({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<DominoDetectionResult | null>(null);
+  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+
+  useEffect(() => {
+    if (!visible || !permission?.granted || !cameraRef.current || !isCameraReady) return;
+
+    let cancelled = false;
+
+    const selectPictureSize = async () => {
+      try {
+        const sizes = await cameraRef.current?.getAvailablePictureSizesAsync();
+        if (!sizes || sizes.length === 0 || cancelled) return;
+
+        const parsed = sizes
+          .map((size) => {
+            const match = /^(\d+)x(\d+)$/i.exec(size);
+            if (!match) return null;
+            const width = Number(match[1]);
+            const height = Number(match[2]);
+            return {
+              raw: size,
+              width,
+              height,
+              area: width * height,
+              edge: Math.max(width, height),
+            };
+          })
+          .filter((item): item is NonNullable<typeof item> => !!item)
+          .sort((a, b) => a.area - b.area);
+
+        if (parsed.length === 0) return;
+
+        const targetEdge = 640;
+        const best =
+          parsed.find((item) => item.edge >= targetEdge) ??
+          parsed[0] ??
+          parsed[0];
+
+        if (!cancelled) {
+          setPictureSize(best.raw);
+        }
+      } catch {
+        if (!cancelled) {
+          setPictureSize(undefined);
+        }
+      }
+    };
+
+    void selectPictureSize();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, permission?.granted, isCameraReady]);
+
+  useEffect(() => {
+    if (!visible || !onWarmup) return;
+    void onWarmup().catch(() => {
+      // Warmup is opportunistic only.
+    });
+  }, [visible, onWarmup]);
 
   useEffect(() => {
     if (!visible) {
@@ -49,6 +112,8 @@ export function PlayerCameraModal({
       setIsAnalyzing(false);
       setAnalysisError(null);
       setAnalysis(null);
+      setPictureSize(undefined);
+      setIsCameraReady(false);
     }
   }, [visible]);
 
@@ -94,7 +159,10 @@ export function PlayerCameraModal({
     setIsTakingPhoto(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
+        quality: 0.45,
+        skipProcessing: true,
+        exif: false,
+        base64: false,
       });
       if (photo?.uri) {
         setCapturedUri(photo.uri);
@@ -184,6 +252,8 @@ export function PlayerCameraModal({
         style={styles.camera}
         facing={facing}
         animateShutter
+        pictureSize={pictureSize}
+        onCameraReady={() => setIsCameraReady(true)}
       />
     );
   };
