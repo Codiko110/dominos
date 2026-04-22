@@ -38,7 +38,7 @@
     "icon": "./assets/images/icon.png",
     "extra": {
       "eas": {
-        
+        "projectId": "67bdfbc8-4e0d-4915-bb45-fa285e7a1090"
       }
     }
   }

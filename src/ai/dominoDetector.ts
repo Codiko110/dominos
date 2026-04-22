@@ -23,7 +23,7 @@ export type DominoDetectionResult = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const MODEL_SOURCE = require('../../assets/model/best_float32.tflite');
+const MODEL_SOURCE = require('../../assets/model/best_int8.tflite');
 const CONFIDENCE_THRESHOLD = 0.5;
 const NMS_THRESHOLD = 0.4;
 
