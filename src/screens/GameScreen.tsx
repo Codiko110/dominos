@@ -31,6 +31,7 @@ export default function GameScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [cameraPlayerId, setCameraPlayerId] = useState<string | null>(null);
+  const [cameraSession, setCameraSession] = useState(0);
   const [pointsToAdd, setPointsToAdd] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   
@@ -62,6 +63,7 @@ export default function GameScreen() {
   };
 
   const openCamera = (playerId: string) => {
+    setCameraSession((current) => current + 1);
     setCameraPlayerId(playerId);
   };
 
@@ -211,6 +213,7 @@ export default function GameScreen() {
 
       {cameraPlayer ? (
         <PlayerCameraModal
+          key={`camera_${cameraPlayer.id}_${cameraSession}`}
           visible={!!cameraPlayer}
           playerName={cameraPlayer.name}
           playerColor={cameraPlayer.color}
@@ -219,7 +222,6 @@ export default function GameScreen() {
           onAnalyzePhoto={detectDominoPoints}
           onUsePhoto={async (photoUri, analysis) => {
             await recordPlayerCapture(cameraPlayer.id, photoUri, analysis.points);
-            setCameraPlayerId(null);
           }}
         />
       ) : null}

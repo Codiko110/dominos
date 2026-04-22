@@ -44,6 +44,35 @@ export function PlayerCameraModal({
   const [analysis, setAnalysis] = useState<DominoDetectionResult | null>(null);
   const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const [cameraViewKey, setCameraViewKey] = useState(0);
+  const [lastCreditedPoints, setLastCreditedPoints] = useState<number | null>(null);
+
+  const resetPreviewState = () => {
+    setCapturedUri(null);
+    setIsTakingPhoto(false);
+    setIsSavingPhoto(false);
+    setIsAnalyzing(false);
+    setAnalysisError(null);
+    setAnalysis(null);
+  };
+
+  const resetCameraSession = () => {
+    resetPreviewState();
+    setLastCreditedPoints(null);
+    setPictureSize(undefined);
+    setIsCameraReady(false);
+    setCameraViewKey((current) => current + 1);
+  };
+
+  const prepareNextCapture = (creditedPoints?: number) => {
+    resetPreviewState();
+    if (typeof creditedPoints === 'number') {
+      setLastCreditedPoints(creditedPoints);
+    }
+    setPictureSize(undefined);
+    setIsCameraReady(false);
+    setCameraViewKey((current) => current + 1);
+  };
 
   useEffect(() => {
     if (!visible || !permission?.granted || !cameraRef.current || !isCameraReady) return;
@@ -106,16 +135,11 @@ export function PlayerCameraModal({
 
   useEffect(() => {
     if (!visible) {
-      setCapturedUri(null);
-      setIsTakingPhoto(false);
-      setIsSavingPhoto(false);
-      setIsAnalyzing(false);
-      setAnalysisError(null);
-      setAnalysis(null);
-      setPictureSize(undefined);
-      setIsCameraReady(false);
+      resetCameraSession();
+      return;
     }
-  }, [visible]);
+    setLastCreditedPoints(null);
+  }, [visible, playerName]);
 
   useEffect(() => {
     if (!capturedUri) {
@@ -155,7 +179,8 @@ export function PlayerCameraModal({
   }, [capturedUri, onAnalyzePhoto]);
 
   const handleTakePhoto = async () => {
-    if (!cameraRef.current || isTakingPhoto) return;
+    if (!cameraRef.current || isTakingPhoto || isSavingPhoto || !isCameraReady) return;
+    setLastCreditedPoints(null);
     setIsTakingPhoto(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -177,6 +202,7 @@ export function PlayerCameraModal({
     setIsSavingPhoto(true);
     try {
       await onUsePhoto(capturedUri, analysis);
+      prepareNextCapture(analysis.points);
     } finally {
       setIsSavingPhoto(false);
     }
@@ -248,6 +274,7 @@ export function PlayerCameraModal({
 
     return (
       <CameraView
+        key={cameraViewKey}
         ref={cameraRef}
         style={styles.camera}
         facing={facing}
@@ -281,6 +308,8 @@ export function PlayerCameraModal({
                 ? analysisError
                 : analysis
                   ? `Points detectes: ${analysis.points}`
+                  : lastCreditedPoints !== null
+                    ? `${lastCreditedPoints} pts credites pour ${playerName}. Tu peux prendre la photo suivante.`
                   : capturedUri
                     ? 'Photo capturee. Analyse du modele en cours.'
                     : `Cadre les dominos de ${playerName}, puis prends la photo pour compter les points.`}
@@ -291,7 +320,7 @@ export function PlayerCameraModal({
             {capturedUri ? (
               <>
                 <Pressable
-                  onPress={() => setCapturedUri(null)}
+                  onPress={() => prepareNextCapture()}
                   style={[styles.secondaryBtn, { borderColor: themeColors.border }]}>
                   <Text style={[styles.secondaryBtnText, { color: themeColors.text }]}>Reprendre</Text>
                 </Pressable>
@@ -323,7 +352,14 @@ export function PlayerCameraModal({
                 </Pressable>
                 <Pressable
                   onPress={() => void handleTakePhoto()}
-                  style={[styles.captureBtnOuter, { borderColor: playerColor }]}>
+                  disabled={!isCameraReady || isTakingPhoto || isSavingPhoto}
+                  style={[
+                    styles.captureBtnOuter,
+                    {
+                      borderColor: playerColor,
+                      opacity: !isCameraReady || isTakingPhoto || isSavingPhoto ? 0.6 : 1,
+                    },
+                  ]}>
                   <View style={[styles.captureBtnInner, { backgroundColor: playerColor }]}>
                     {isTakingPhoto ? <ActivityIndicator color="#FFF" /> : null}
                   </View>
