@@ -7,6 +7,8 @@ export type GamePlayer = {
   name: string;
   color: string;
   score: number;
+  photoUri?: string;
+  lastDetectedPoints?: number;
 };
 
 export type GameRound = {
@@ -49,6 +51,7 @@ type GameRoundsContextValue = {
   history: GameHistoryItem[];
   startNewGame: (params: StartNewGameParams) => Promise<void>;
   addRoundWithScore: (playerId: string, score: number) => Promise<void>;
+  recordPlayerCapture: (playerId: string, photoUri: string, detectedPoints?: number) => Promise<void>;
   setRoundScore: (roundId: string, playerId: string, score: number) => Promise<void>;
   deleteRound: (roundId: string) => Promise<void>;
   replay: () => Promise<void>;
@@ -193,6 +196,47 @@ export function GameRoundsProvider({ children }: { children: React.ReactNode }) 
     await persistGame(nextGame);
   };
 
+  const recordPlayerCapture = async (playerId: string, photoUri: string, detectedPoints?: number) => {
+    if (!game || game.status !== 'playing') return;
+
+    const nextPlayers = game.players.map((p) =>
+      p.id === playerId
+        ? {
+            ...p,
+            photoUri,
+            lastDetectedPoints: detectedPoints === undefined ? p.lastDetectedPoints : toSafeScore(detectedPoints),
+          }
+        : p
+    );
+
+    let nextGameBase: GameState = {
+      ...game,
+      players: nextPlayers,
+    };
+
+    if (detectedPoints !== undefined) {
+      const safeScore = toSafeScore(detectedPoints);
+      const scoresByPlayerId: Record<string, number> = {};
+      for (const p of game.players) scoresByPlayerId[p.id] = 0;
+      if (scoresByPlayerId[playerId] !== undefined) scoresByPlayerId[playerId] = safeScore;
+
+      const nextRounds: GameRound[] = [
+        ...game.rounds,
+        { id: createId('round'), atISO: new Date().toISOString(), scoresByPlayerId },
+      ];
+
+      const totals = computeTotals(nextPlayers, nextRounds);
+      nextGameBase = {
+        ...nextGameBase,
+        rounds: nextRounds,
+        players: nextPlayers.map((p) => ({ ...p, score: totals[p.id] ?? 0 })),
+      };
+    }
+
+    const nextGame = await finalizeIfNeeded(nextGameBase);
+    await persistGame(nextGame);
+  };
+
   const setRoundScore = async (roundId: string, playerId: string, score: number) => {
     if (!game || game.status !== 'playing') return;
     const safeScore = toSafeScore(score);
@@ -251,6 +295,7 @@ export function GameRoundsProvider({ children }: { children: React.ReactNode }) 
     history,
     startNewGame,
     addRoundWithScore,
+    recordPlayerCapture,
     setRoundScore,
     deleteRound,
     replay,

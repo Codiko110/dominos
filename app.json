@@ -3,20 +3,43 @@
     "name": "Domino Score",
     "slug": "domino-score",
     "scheme": "domino-score",
-    
+    "newArchEnabled": true,
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autorisez Domino Score a acceder a la camera pour photographier les dominos."
+        }
+      ],
+      "react-native-fast-tflite",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Autorisez Domino Score a acceder a la camera pour prendre une photo."
+        }
+      ]
+    ],
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "android": {
+      "package": "com.naunau2026.dominoscore",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
-
-    "icon": "./assets/images/icon.png"
+    "icon": "./assets/images/icon.png",
+    "extra": {
+      "eas": {
+        
+      }
+    }
   }
 }
