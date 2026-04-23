@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -35,7 +36,6 @@ export function PlayerCameraModal({
   const { themeColors } = usePreferences();
   const cameraRef = useRef<CameraView | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState<CameraType>('back');
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
@@ -103,7 +103,7 @@ export function PlayerCameraModal({
 
         if (parsed.length === 0) return;
 
-        const targetEdge = 640;
+        const targetEdge = 1280;
         const best =
           parsed.find((item) => item.edge >= targetEdge) ??
           parsed[0] ??
@@ -181,17 +181,22 @@ export function PlayerCameraModal({
   const handleTakePhoto = async () => {
     if (!cameraRef.current || isTakingPhoto || isSavingPhoto || !isCameraReady) return;
     setLastCreditedPoints(null);
+    setAnalysisError(null);
     setIsTakingPhoto(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.45,
-        skipProcessing: true,
+        quality: 0.9,
+        // Android back cameras may return white/invalid frames when skipProcessing is true.
+        // Keep processing enabled there for stable captures.
+        skipProcessing: Platform.OS === 'ios',
         exif: false,
         base64: false,
       });
       if (photo?.uri) {
         setCapturedUri(photo.uri);
       }
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'La capture de la photo a echoue.');
     } finally {
       setIsTakingPhoto(false);
     }
@@ -277,10 +282,11 @@ export function PlayerCameraModal({
         key={cameraViewKey}
         ref={cameraRef}
         style={styles.camera}
-        facing={facing}
-        animateShutter
+        facing={'back' as CameraType}
+        animateShutter={false}
         pictureSize={pictureSize}
         onCameraReady={() => setIsCameraReady(true)}
+        onMountError={() => setAnalysisError("Impossible d'initialiser la camera.")}
       />
     );
   };
@@ -345,11 +351,6 @@ export function PlayerCameraModal({
               </>
             ) : (
               <>
-                <Pressable
-                  onPress={() => setFacing((current) => (current === 'back' ? 'front' : 'back'))}
-                  style={[styles.secondaryIconBtn, { borderColor: themeColors.border }]}>
-                  <Ionicons name="camera-reverse-outline" size={22} color={themeColors.text} />
-                </Pressable>
                 <Pressable
                   onPress={() => void handleTakePhoto()}
                   disabled={!isCameraReady || isTakingPhoto || isSavingPhoto}

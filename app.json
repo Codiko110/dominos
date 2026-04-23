@@ -11,13 +11,7 @@
           "cameraPermission": "Autorisez Domino Score a acceder a la camera pour photographier les dominos."
         }
       ],
-      "react-native-fast-tflite",
-      [
-        "expo-image-picker",
-        {
-          "cameraPermission": "Autorisez Domino Score a acceder a la camera pour prendre une photo."
-        }
-      ]
+      "react-native-fast-tflite"
     ],
     "splash": {
       "image": "./assets/images/icon.png",
@@ -26,6 +20,9 @@
     },
     "android": {
       "package": "com.naunau2026.dominoscore",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
@@ -38,8 +35,9 @@
     "icon": "./assets/images/icon.png",
     "extra": {
       "eas": {
-        
+        "projectId": "2a92a3cc-c5ac-4822-a5b6-d724728fb70a"
       }
-    }
+    },
+    "owner": "dahapar"
   }
 }
