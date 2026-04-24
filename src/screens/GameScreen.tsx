@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,7 +24,7 @@ import { PlayerCameraModal } from '@/components/ui/PlayerCameraModal';
 export default function GameScreen() {
   const router = useRouter();
   const { themeColors } = usePreferences();
-  const { game, addRoundWithScore, deleteRound, setRoundScore, replay, recordPlayerCapture } = useGame();
+  const { game, addRoundWithScore, deleteRound, setRoundScore, recordPlayerCapture } = useGame();
   const { width: windowWidth } = useWindowDimensions();
 
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -89,14 +88,7 @@ export default function GameScreen() {
   const cameraPlayer = game.players.find((p) => p.id === cameraPlayerId);
 
   return (
-    <ScreenContainer style={{ backgroundColor: themeColors.background }}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => replay()} style={styles.refreshBtn}>
-          <Ionicons name="refresh" size={24} color={themeColors.primary} />
-        </TouchableOpacity>
-      </View>
-
+    <ScreenContainer>
       {/* Grille des joueurs */}
       <View style={styles.gridContainer}>
         {game.players.map((p) => (
@@ -106,7 +98,6 @@ export default function GameScreen() {
             <View style={[styles.playerCard, { backgroundColor: p.color || '#990000' }]}>
               <View style={styles.cardInfo}>
                 <View style={styles.playerIdentity}>
-                  {p.photoUri ? <Image source={{ uri: p.photoUri }} style={styles.playerThumb} /> : null}
                   <Text style={styles.playerName} numberOfLines={1}>
                     {p.name.toLowerCase()}
                   </Text>
@@ -125,12 +116,6 @@ export default function GameScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-              {typeof p.lastDetectedPoints === 'number' ? (
-                <View style={styles.detectedBadge}>
-                  <Ionicons name="scan-outline" size={12} color="#FFF" />
-                  <Text style={styles.detectedBadgeText}>{p.lastDetectedPoints} pts</Text>
-                </View>
-              ) : null}
               <Text style={styles.cardBigScore}>{p.score}</Text>
             </View>
 
@@ -230,15 +215,6 @@ export default function GameScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  refreshBtn: {
-    padding: 8,
-  },
   gridContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -271,13 +247,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginRight: 8,
   },
-  playerThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.45)',
-  },
   playerName: {
     color: '#FFF',
     fontSize: 14,
@@ -300,28 +269,11 @@ const styles = StyleSheet.create({
   iconPressed: {
     opacity: 0.75,
   },
-  detectedBadge: {
-    position: 'absolute',
-    left: 10,
-    bottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  detectedBadgeText: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
   cardBigScore: {
     position: 'absolute',
     right: 5,
     bottom: -5,
-    fontSize: 50,
+    fontSize: 26,
     fontWeight: '900',
     color: 'rgba(255,255,255,0.25)',
   },
@@ -360,7 +312,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(0,0,0,0.05)',
   },
   scoreTotal: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '900',
   },
   // MODAL
@@ -378,7 +330,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 20,
   },
@@ -386,7 +338,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 60,
     borderRadius: 12,
-    fontSize: 32,
+    fontSize: 20,
     textAlign: 'center',
     fontWeight: 'bold',
     marginBottom: 20,

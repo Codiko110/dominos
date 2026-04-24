@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePreferences } from '@/context/PreferencesContext';
 import type { DetectionBox, DominoDetectionResult } from '@/ai/dominoDetector';
 
@@ -34,6 +35,7 @@ export function PlayerCameraModal({
   onUsePhoto,
 }: PlayerCameraModalProps) {
   const { themeColors } = usePreferences();
+  const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
@@ -46,6 +48,7 @@ export function PlayerCameraModal({
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [cameraViewKey, setCameraViewKey] = useState(0);
   const [lastCreditedPoints, setLastCreditedPoints] = useState<number | null>(null);
+  const [isFlashOn, setIsFlashOn] = useState(false);
 
   const resetPreviewState = () => {
     setCapturedUri(null);
@@ -59,6 +62,7 @@ export function PlayerCameraModal({
   const resetCameraSession = () => {
     resetPreviewState();
     setLastCreditedPoints(null);
+    setIsFlashOn(false);
     setPictureSize(undefined);
     setIsCameraReady(false);
     setCameraViewKey((current) => current + 1);
@@ -69,6 +73,7 @@ export function PlayerCameraModal({
     if (typeof creditedPoints === 'number') {
       setLastCreditedPoints(creditedPoints);
     }
+    setIsFlashOn(false);
     setPictureSize(undefined);
     setIsCameraReady(false);
     setCameraViewKey((current) => current + 1);
@@ -285,6 +290,7 @@ export function PlayerCameraModal({
         facing={'back' as CameraType}
         animateShutter={false}
         pictureSize={pictureSize}
+        enableTorch={isFlashOn}
         onCameraReady={() => setIsCameraReady(true)}
         onMountError={() => setAnalysisError("Impossible d'initialiser la camera.")}
       />
@@ -293,7 +299,7 @@ export function PlayerCameraModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top + 8 }]}>
         <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           <View style={styles.header}>
             <View>
@@ -318,7 +324,7 @@ export function PlayerCameraModal({
                     ? `${lastCreditedPoints} pts credites pour ${playerName}. Tu peux prendre la photo suivante.`
                   : capturedUri
                     ? 'Photo capturee. Analyse du modele en cours.'
-                    : `Cadre les dominos de ${playerName}, puis prends la photo pour compter les points.`}
+                    : ''}
             </Text>
           </View>
 
@@ -365,8 +371,10 @@ export function PlayerCameraModal({
                     {isTakingPhoto ? <ActivityIndicator color="#FFF" /> : null}
                   </View>
                 </Pressable>
-                <Pressable onPress={onClose} style={[styles.secondaryIconBtn, { borderColor: themeColors.border }]}>
-                  <Ionicons name="arrow-back-outline" size={22} color={themeColors.text} />
+                <Pressable
+                  onPress={() => setIsFlashOn((current) => !current)}
+                  style={[styles.secondaryIconBtn, { borderColor: themeColors.border }]}>
+                  <Ionicons name={isFlashOn ? 'flash-off-outline' : 'flash-outline'} size={22} color={themeColors.text} />
                 </Pressable>
               </>
             )}
@@ -381,7 +389,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(2, 6, 23, 0.76)',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     padding: 18,
   },
   card: {

@@ -10,7 +10,7 @@ export default function SettingsScreen() {
   const { themeColors, theme, setTheme, setLanguage } = usePreferences();
 
   return (
-    <ScreenContainer>
+    <ScreenContainer disableThemeBackgroundImage>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.section}>
           <Text style={[styles.title, { color: themeColors.text }]}>{t('theme')}</Text>
@@ -84,4 +84,3 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
 });
-
